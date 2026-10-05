@@ -1,8 +1,13 @@
+from pygrad.utils import top_sort
+
+
 def wrap_value(val):
-    return val if isinstance(val, Value) else Value(val)
+    return val if isinstance(val, Value) else Value(float(val))
 
 
 class Value:
+    operation = 'I'
+
     def __init__(self, data, *prev):
         self.data = data
         self.prev = prev
@@ -13,7 +18,9 @@ class Value:
 
     def backward(self):
         self.grad = 1.0
-        self._backward()
+        values = top_sort(self)
+        for v in reversed(values):
+            v._backward()
 
     def __repr__(self):
         return f'Value({self.data})'
@@ -31,24 +38,28 @@ class Value:
 
     __rmul__ = __mul__
 
-    def __pow__(self, deg):
-        assert isinstance(deg, float)
-        return Pow(self, deg)
-
-    def __truediv__(self, other):
-        return Mul(self, wrap_value(other) ** (-1.0))
-
     def __sub__(self, other):
         return self + (-wrap_value(other))
 
     def __rsub__(self, other):
         return (-self) + wrap_value(other)
 
+    def __pow__(self, deg):
+        return Pow(self, float(deg))
+
+    def __truediv__(self, other):
+        return Mul(self, wrap_value(other) ** (-1.0))
+
+    def __rtruediv__(self, other):
+        return wrap_value(other) / self
+
     def relu(self):
         return ReLU(self)
 
 
 class Add(Value):
+    operation = '+'
+
     def __init__(self, first, second):
         super().__init__(first.data + second.data, first, second)
 
@@ -58,6 +69,8 @@ class Add(Value):
 
 
 class Mul(Value):
+    operation = '*'
+
     def __init__(self, first, second):
         super().__init__(first.data * second.data, first, second)
 
@@ -67,19 +80,23 @@ class Mul(Value):
 
 
 class Pow(Value):
+    operation = '^'
+
     def __init__(self, val, deg):
-        super().__init__(val.data * deg, val)
+        super().__init__(val.data ** deg, val)
         self.deg = deg
 
     def _backward(self):
-        grad = self.deg * (self.data ** (self.deg - 1))
-        self.prev[0].grad += self.grad * grad
+        prev = self.prev[0]
+        grad = self.deg * (prev.data ** (self.deg - 1))
+        prev.grad += self.grad * grad
 
 
 class ReLU(Value):
+    operation = 'ReLU'
+
     def __init__(self, val):
         super().__init__(max(0, val.data), val)
 
     def _backward(self):
-        self.prev[0].grad += float(self.data > 0)
-
+        self.prev[0].grad += self.grad * float(self.data > 0)
