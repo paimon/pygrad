@@ -25,7 +25,7 @@ class Neuron(Module):
         return sum((wi * xi for wi, xi in zip(self.w, X)), self.b)
 
 
-class LinearLayer(Module):
+class Linear(Module):
     def __init__(self, in_dim, out_dim):
         self.neurons = [Neuron(in_dim) for _ in range(out_dim)]
 
@@ -37,7 +37,7 @@ class LinearLayer(Module):
         return [n(X) for n in self.neurons]
 
 
-class ReLULayer(Module):
+class ReLU(Module):
     def __call__(self, X):
         return [x.relu() for x in X]
 
@@ -47,8 +47,8 @@ class MLP(Module):
         self.layers = []
         for in_dim, out_dim in zip(dims, dims[1:]):
             if self.layers:
-                self.layers.append(ReLULayer())
-            self.layers.append(LinearLayer(in_dim, out_dim))
+                self.layers.append(ReLU())
+            self.layers.append(Linear(in_dim, out_dim))
 
     def parameters(self):
         for l in self.layers:
